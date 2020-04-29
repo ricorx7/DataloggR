@@ -19,13 +19,25 @@
 <form action="/serial_connect" method="POST">
   <div class="form-group">
     <label for="exampleFormControlSelect1">COMM Port</label>
-    <select class="form-control" name="comm_port_select" id="comm_port_select">
+    <select class="form-control" name="comm_port_selected" id="comm_port_select">
         {% if selected_comm_port != null %}
             <option selected="selected">{{ selected_comm_port }}</option>
         {% endif %}
 
         {% for comm in comm_ports %}
             <option>{{ comm }}</option>
+        {% endfor %}
+    </select>
+  </div>
+  <div class="form-group">
+    <label for="exampleFormControlSelect1">Baud Rate</label>
+    <select class="form-control" name="baud_selected" id="baud_selected">
+        {% if selected_comm_port != null %}
+            <option selected="selected">{{ selected_baud }}</option>
+        {% endif %}
+
+        {% for baud in bauds %}
+            <option>{{ baud }}</option>
         {% endfor %}
     </select>
   </div>
