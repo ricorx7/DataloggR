@@ -1,0 +1,36 @@
+{% extends "base.html" %} 
+
+{% block title %} 
+    Rowe Technologies, Inc. Download Datalogger
+{% endblock %} 
+
+{% block head %}
+    {{ super() }}
+    <style type="text/css">
+        .important {
+            color: #336699;
+        }
+    </style>
+
+{% endblock %} 
+
+{% block content %}
+
+<form action="/serial_connect" method="POST">
+  <div class="form-group">
+    <label for="exampleFormControlSelect1">COMM Port</label>
+    <select class="form-control" name="comm_port_select" id="comm_port_select">
+        {% if selected_comm_port != null %}
+            <option selected="selected">{{ selected_comm_port }}</option>
+        {% endif %}
+
+        {% for comm in comm_ports %}
+            <option>{{ comm }}</option>
+        {% endfor %}
+    </select>
+  </div>
+  <input type="submit" value="Connect"><br>
+</form>
+
+
+{% endblock %}
