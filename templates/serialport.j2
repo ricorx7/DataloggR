@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Serial Port</h1>
+    <form action="" method="POST" novalidate>
+        {{ form.hidden_tag() }}
+        {{ form.csrf_token }}
+        <p>
+            {{ form.comm_port.label }}<br>
+            {{ form.comm_port() }}
+            {{ form.scan() }}
+        </p>
+        <p>
+            {{ form.baud_rate.label }}<br>
+            {{ form.baud_rate() }}
+        </p>
+        <p>{{ form.connect() }} {{ form.disconnect() }}</p>
+    </form>
+{% endblock %}

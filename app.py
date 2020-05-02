@@ -1,8 +1,9 @@
-from flask import Flask, render_template, session, request, copy_current_request_context
+from flask import Flask, render_template, session, request, copy_current_request_context, flash, redirect, jsonify
 from flaskwebgui import FlaskUI
 from threading import Lock
 from flask_socketio import SocketIO, emit, join_room, leave_room, close_room, rooms, disconnect
-from rti_python.Datalogger.DataloggerHardware import DataLoggerHardware
+from forms import SerialPortForm
+import rti_python.Datalogger.DataloggerHardware as data_logger
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
@@ -10,14 +11,19 @@ from rti_python.Datalogger.DataloggerHardware import DataLoggerHardware
 async_mode = None
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'you-will-never-guess'
 ui = FlaskUI(app)
 socketio = SocketIO(app, async_mode=async_mode)
 thread = None
 thread_lock = Lock()
 
-# Datalogger hardward
-logger_hardware = DataLoggerHardware()
+# Datalogger hardware
+logger_hardware = data_logger.DataLoggerHardware()
 
+
+# Current serial port
+selected_serial_port = None
+selected_baud_rate = None
 
 def background_thread():
     """Example of how to send server generated events to clients."""
@@ -33,7 +39,76 @@ def background_thread():
 @app.route("/")
 def main_page():
     # Use Download page as main
-    return download_page(None, None)
+    #return download_page(None, None)
+    #return redirect('/serial')
+    #return serial_page(None, None)
+    form = SerialPortForm()
+    return render_template('serial.j2', form=form)
+
+
+@app.route('/serial_scan', methods=['POST'])
+def serial_scan():
+    print("Scan Serial Ports")
+    return jsonify(data={'port_list': data_logger.get_serial_ports()})
+
+
+@app.route('/serial_connect', methods=['POST'])
+def serial_connect():
+    form = SerialPortForm()
+    print("CALL Serial Connect")
+    if form.validate_on_submit():
+        print("SERIAL Connect")
+        return jsonify(data={
+                                'comm_port': '{}'.format(form.comm_port.data),
+                                'baud_rate': '{}'.format(form.baud_rate.data)
+                                })
+    
+    # If not valid, return errors
+    return jsonify(data=form.errors)
+
+
+@app.route("/serial", methods=['GET', 'POST'])
+#def serial_page(selected_port: str = None, selected_baud: str = None):
+def serial_page():
+    # Global values to keep track of selected items
+    global selected_serial_port
+    global selected_baud_rate
+
+    # Create the form
+    serial_port_form = SerialPortForm()
+
+    # Set the selected values if previously set
+    serial_port_form.comm_port.choices = data_logger.get_serial_ports_tuple()
+    if selected_serial_port:
+        serial_port_form.comm_port.default = selected_serial_port
+    if selected_baud_rate:
+        serial_port_form.baud_rate.default = selected_baud_rate
+
+    # Check for POST
+    if serial_port_form.validate_on_submit():
+        flash('COMM Port {}, Baud Rate={}'.format(serial_port_form.comm_port.data, serial_port_form.baud_rate.data))
+        selected_serial_port = serial_port_form.comm_port.data
+        selected_baud_rate = serial_port_form.baud_rate.data
+        if serial_port_form.scan.data:
+            flash("SCAN New Ports")
+        if serial_port_form.connect.data:
+            flash("Connect ADCP Serial Port")
+        if serial_port_form.disconnect.data:
+            flash("Disconnect ADCP Serial Port")
+        print("Scan Value : {value}".format(value=serial_port_form.scan.data))
+        print("Connect Value : {value}".format(value=serial_port_form.connect.data))
+        print("Disconnect Value : {value}".format(value=serial_port_form.disconnect.data))
+        return redirect('/serial')
+        #return serial_page(serial_port_form.comm_port.data, serial_port_form.baud_rate.data)
+
+    # Check for errors
+    if serial_port_form.errors:
+        print("***ERROR with SerialPort Page***")
+        for error in serial_port_form.errors:
+            print(error)
+
+    # GET
+    return render_template('serialport.j2', title='Serial Port', form=serial_port_form)
 
 
 @app.route("/download")
