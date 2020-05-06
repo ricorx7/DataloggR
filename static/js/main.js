@@ -62,13 +62,188 @@ $(document).ready(function() {
     });
 
 
+    /**
+     * Handle the Serial port SCAN button.
+     * This will reset the serial port list
+     * then set the previously selected COMM port.
+     */
+    $('#btnConnect').click(function() {
+        console.log("CONNECT BUTTON CLICKED")
+
+        // grab values
+        comm_port = $('#comm_port').val();
+        baud_rate = $("#baud_rate").val();
+        console.log(comm_port, baud_rate)
+
+        $.ajax({
+            type: "POST",
+            url: "/serial_connect",
+            data: $('form').serialize(), // serializes the form's elements.
+            success: function (response) {
+                console.log(response)  // display the returned data in the console.
+
+            }
+        });
+
+        // Inject our CSRF token into our AJAX request.
+        // REALLY JUST REQUIRED FOR WEB USE
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", "{{ form.csrf_token._value() }}")
+                }
+            }
+        })
+    });
+
+    /**
+     * Handle the Serial port SCAN button.
+     * This will reset the serial port list
+     * then set the previously selected COMM port.
+     */
+    $('#btnDisconnect').click(function() {
+        console.log("DISCONNECT BUTTON CLICKED")
+
+        // grab values
+        comm_port = $('#comm_port').val();
+        baud_rate = $("#baud_rate").val();
+        console.log(comm_port, baud_rate)
+
+        $.ajax({
+            type: "POST",
+            url: "/serial_disconnect",
+            data: $('form').serialize(), // serializes the form's elements.
+            success: function (response) {
+                console.log(response)  // display the returned data in the console.
+
+            }
+        });
+
+        // Inject our CSRF token into our AJAX request.
+        // REALLY JUST REQUIRED FOR WEB USE
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", "{{ form.csrf_token._value() }}")
+                }
+            }
+        })
+    });
+
+
+    /**
+     * Handle the Serial port SCAN button.
+     * This will reset the serial port list
+     * then set the previously selected COMM port.
+     */
+    $('#btnBrowseFolder').click(function() {
+        console.log("Browse Folder")
+
+        // grab values
+        comm_port = $('#comm_port').val();
+        baud_rate = $("#baud_rate").val();
+        console.log(comm_port, baud_rate)
+
+        $.ajax({
+            type: "POST",
+            url: "/browse_folder",
+            data: $('form').serialize(), // serializes the form's elements.
+            success: function (response) {
+                console.log(response)  // display the returned data in the console.
+
+            }
+        });
+
+        // Inject our CSRF token into our AJAX request.
+        // REALLY JUST REQUIRED FOR WEB USE
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", "{{ form.csrf_token._value() }}")
+                }
+            }
+        })
+    });
+
+    /**
+     * Handle downloading.
+     */
+    $('#btnDownload').click(function() {
+        console.log("Download")
+
+        // grab values
+        comm_port = $('#comm_port').val();
+        baud_rate = $("#baud_rate").val();
+        console.log(comm_port, baud_rate)
+
+        $.ajax({
+            type: "POST",
+            url: "/download",
+            data: $('form').serialize(), // serializes the form's elements.
+            success: function (response) {
+                console.log(response)  // display the returned data in the console.
+
+            }
+        });
+
+        // Inject our CSRF token into our AJAX request.
+        // REALLY JUST REQUIRED FOR WEB USE
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", "{{ form.csrf_token._value() }}")
+                }
+            }
+        })
+    });
+
+    // Use a "/test" namespace.
+    // An application can open a connection on multiple namespaces, and
+    // Socket.IO will multiplex all those connections on a single
+    // physical channel. If you don't care about multiple channels, you
+    // can set the namespace to an empty string.
+    namespace = '/test';
+
+    // Connect to the Socket.IO server.
+    // The connection URL has the following format, relative to the current page:
+    //     http[s]://<domain>:<port>[/<namespace>]
+    var socket = io(namespace);
+
+    // Event handler for new connections.
+    // The callback function is invoked when a connection with the
+    // server is established.
+    socket.on('connect', function() {
+        socket.emit('my_event', {data: 'I\'m connected!'});
+    });
+
+    // Event handler for server sent data.
+    // The callback function is invoked whenever the server emits data
+    // to the client. The data is then displayed in the "Received"
+    // section of the page.
+    socket.on('status_report', function(msg, cb) {
+        //$('#log').append('<br>' + $('<div/>').text('Received #' + msg.count + ': ' + msg.data).html());
+        //if (cb)
+        //    cb();
+    });
+
+        // Event handler for server sent data.
+    // The callback function is invoked whenever the server emits data
+    // to the client. The data is then displayed in the "Received"
+    // section of the page.
+    socket.on('dl_status', function(msg, cb) {
+        //$('#dl_status').append('<br>' + $('<div/>').text('Received #' + msg.count + ': ' + msg).html());
+        json_msg = JSON.parse(msg)
+        console.log(msg)
+        console.log(json_msg.TotalBlocks)
+        console.log(json_msg.FolderPath)
+        //if (cb)
+        //    cb();
+        $("#totalBlocks").html(json_msg.PrettyTotalBlocks.toString());
+        $("#blocksRead").html(json_msg.PrettyBlocksRead.toString());
+        $("#blocksLeft").html(json_msg.PrettyBlocksLeft.toString());
+        $("#folderPath").html(json_msg.FolderPath.toString());
+        $("#downloadProgress").html(json_msg.DownloadProgress.toString());
+        $( "#progressbar" ).progressbar({ value: json_msg.DownloadProgress });
+    });
+
 });
-
-function serialConnect() {
-    console.log("CONNECT SERIAL");
-
-    // grab values
-    comm_port = $('#comm_port').val();
-    baud_rate = $("#baud_rate").val();
-    console.log(comm_port, baud_rate)
-}

@@ -14,3 +14,18 @@ pip install -r requirements.txt
 pip install -r rti_python\requirements.txt
 ```
 
+# VSCode to run Python scripts to activate VENV
+```
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+& c:/Users/rico/Documents/rti/python/DataloggR/venv/Scripts/Activate.ps1
+```
+
+
+# Debugging Code
+Open the application and press Ctrl-Shift-I to view the Chrome Inspection Tool.  
+
+If the Javascript is modified, the previous script will be in cache and not relead.
+Go to the Network tab in the Chrome inspection tool and check and uncheck "Disable Cache".
+Then reload the browser window by pressing Ctrl-R.  The new Javascript will be loaded and you can verify this in the Console tab of the inspection tool.  
+
+You can also debug the javascript in the Inspection tool

@@ -3,7 +3,10 @@ from flaskwebgui import FlaskUI
 from threading import Lock
 from flask_socketio import SocketIO, emit, join_room, leave_room, close_room, rooms, disconnect
 from forms import SerialPortForm
+import json
 import rti_python.Datalogger.DataloggerHardware as data_logger
+from tkinter import filedialog
+from tkinter import *
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
@@ -20,10 +23,13 @@ thread_lock = Lock()
 # Datalogger hardware
 logger_hardware = data_logger.DataLoggerHardware()
 
+# Socket IO 
+count = 0
 
 # Current serial port
 selected_serial_port = None
 selected_baud_rate = None
+
 
 def background_thread():
     """Example of how to send server generated events to clients."""
@@ -31,9 +37,18 @@ def background_thread():
     while True:
         socketio.sleep(10)
         count += 1
-        socketio.emit('my_response',
+        socketio.emit('status_report',
                       {'data': 'Server generated event', 'count': count},
                       namespace='/test')
+
+
+        dl_status = logger_hardware.get_status()
+        #json_dl_status = jsonify(dl_status)
+        json_dl_status = json.dumps(dl_status)
+        socketio.emit('dl_status',
+                        json_dl_status,
+                        namespace='/test')
+
 
 
 @app.route("/")
@@ -49,7 +64,28 @@ def main_page():
 @app.route('/serial_scan', methods=['POST'])
 def serial_scan():
     print("Scan Serial Ports")
+
+    socketio.emit('status_report',
+                {'data': 'Scan Serial Ports', 'count': count},
+                namespace='/test')
+
     return jsonify(data={'port_list': data_logger.get_serial_ports()})
+
+
+@app.route('/browse_folder', methods=['POST'])
+def browse_folder():
+    print("Browse for Folder")
+
+    folder_path = logger_hardware.browse_folder()
+
+    dl_status = logger_hardware.get_status()
+    #json_dl_status = jsonify(dl_status)
+    json_dl_status = json.dumps(dl_status)
+    socketio.emit('dl_status',
+                    json_dl_status,
+                    namespace='/test')
+
+    return jsonify(data={'folder_path': folder_path})
 
 
 @app.route('/serial_connect', methods=['POST'])
@@ -58,15 +94,56 @@ def serial_connect():
     print("CALL Serial Connect")
     if form.validate_on_submit():
         print("SERIAL Connect")
+
+        # Try to connect to the serial port
+        connect_status = logger_hardware.connect_serial(form.comm_port.data, int(form.baud_rate.data))
+
         return jsonify(data={
                                 'comm_port': '{}'.format(form.comm_port.data),
-                                'baud_rate': '{}'.format(form.baud_rate.data)
+                                'baud_rate': '{}'.format(form.baud_rate.data),
+                                'Status': connect_status
                                 })
     
     # If not valid, return errors
     return jsonify(data=form.errors)
 
 
+@app.route('/serial_disconnect', methods=['POST'])
+def serial_disconnect():
+    form = SerialPortForm()
+    print("CALL Serial Disconnect")
+    if form.validate_on_submit():
+        print("SERIAL Disconnect")
+
+        # Try to connect to the serial port
+        connect_status = "Disconnect"
+        logger_hardware.disconnect_serial()
+
+        return jsonify(data={
+                                'comm_port': '{}'.format(form.comm_port.data),
+                                'baud_rate': '{}'.format(form.baud_rate.data),
+                                'Status': '{}'.format(connect_status)
+                                })
+    
+    # If not valid, return errors
+    return jsonify(data=form.errors)
+
+
+@app.route('/download', methods=['POST'])
+def download():
+    print("CALL Download")
+
+    # Start the download process
+    logger_hardware.download()
+
+    return jsonify(data={
+        'status': 'Downloading'
+    })
+
+    # If not valid, return errors
+    return jsonify(data=form.errors)
+
+"""
 @app.route("/serial", methods=['GET', 'POST'])
 #def serial_page(selected_port: str = None, selected_baud: str = None):
 def serial_page():
@@ -155,14 +232,20 @@ def test_message(message):
 @socketio.on('my broadcast event', namespace='/test')
 def test_broad_message(message):
     emit('my_response', {'data': message['data']}, broadcast=True)
+"""
 
 @socketio.on('connect', namespace='/test')
 def test_connect():
     global thread
     with thread_lock:
         if thread is None:
-            thread = socketio.start_background_task(background_thread)
-    emit('my_response', {'data': 'Connected', 'count': 0})
+            @copy_current_request_context
+            def ctx_bridge():
+                background_thread()
+
+
+            thread = socketio.start_background_task(ctx_bridge)
+    emit('status_report', {'data': 'Connected', 'count': 0})
 
 @socketio.on('disconnect', namespace='/test')
 def test_disconnect():
