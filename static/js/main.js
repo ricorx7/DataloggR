@@ -115,7 +115,6 @@ $(document).ready(function() {
             data: $('form').serialize(), // serializes the form's elements.
             success: function (response) {
                 console.log(response)  // display the returned data in the console.
-
             }
         });
 
@@ -230,20 +229,27 @@ $(document).ready(function() {
     // The callback function is invoked whenever the server emits data
     // to the client. The data is then displayed in the "Received"
     // section of the page.
-    socket.on('dl_status', function(msg, cb) {
+    socket.on('gui_status', function(msg, cb) {
         //$('#dl_status').append('<br>' + $('<div/>').text('Received #' + msg.count + ': ' + msg).html());
         json_msg = JSON.parse(msg)
         console.log(msg)
-        console.log(json_msg.TotalBlocks)
-        console.log(json_msg.FolderPath)
+        console.log(json_msg.dl_status.TotalBlocks)
+        console.log(json_msg.dl_status.FolderPath)
         //if (cb)
         //    cb();
-        $("#totalBlocks").html(json_msg.PrettyTotalBlocks.toString());
-        $("#blocksRead").html(json_msg.PrettyBlocksRead.toString());
-        $("#blocksLeft").html(json_msg.PrettyBlocksLeft.toString());
-        $("#folderPath").html(json_msg.FolderPath.toString());
-        $("#downloadProgress").html(json_msg.DownloadProgress.toString());
-        $( "#progressbar" ).progressbar({ value: json_msg.DownloadProgress });
+        $("#totalBlocks").html(json_msg.dl_status.PrettyTotalBlocks.toString());
+        $("#blocksRead").html(json_msg.dl_status.PrettyBlocksRead.toString());
+        $("#blocksLeft").html(json_msg.dl_status.PrettyBlocksLeft.toString());
+        $("#folderPath").html(json_msg.dl_status.FolderPath.toString());
+        $("#downloadProgress").html(json_msg.dl_status.DownloadProgress.toString());
+        $( "#progressbar" ).progressbar({ value: json_msg.dl_status.DownloadProgress });
+
+        //$('#btnConnect').disabled = json_msg.btn_connect_enable;
+        //$('#btnDisconnect').disabled = json_msg.btn_disconnect_enable;
+        document.getElementById("btnConnect").disabled = json_msg.btn_connect_disabled
+        document.getElementById("btnDisconnect").disabled = json_msg.btn_disconnect_disabled
+        document.getElementById("btnScan").disabled = json_msg.btn_scan_disabled
+        document.getElementById("btnDownload").disabled = json_msg.btn_download_disabled
     });
 
 });

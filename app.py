@@ -1,12 +1,11 @@
-from flask import Flask, render_template, session, request, copy_current_request_context, flash, redirect, jsonify
+from flask import Flask, render_template, request, copy_current_request_context, jsonify
 from flaskwebgui import FlaskUI
 from threading import Lock
-from flask_socketio import SocketIO, emit, join_room, leave_room, close_room, rooms, disconnect
+from flask_socketio import SocketIO, emit
 from forms import SerialPortForm
 import json
 import rti_python.Datalogger.DataloggerHardware as data_logger
-from tkinter import filedialog
-from tkinter import *
+from vm import DataloggrGui
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
@@ -16,12 +15,17 @@ async_mode = None
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'you-will-never-guess'
 ui = FlaskUI(app)
+ui.height = 800
+ui.width = 1000
 socketio = SocketIO(app, async_mode=async_mode)
 thread = None
 thread_lock = Lock()
 
 # Datalogger hardware
 logger_hardware = data_logger.DataLoggerHardware()
+
+# GUI object to keep track of state
+gui = DataloggrGui.DataloggrGui()
 
 # Socket IO 
 count = 0
@@ -32,23 +36,34 @@ selected_baud_rate = None
 
 
 def background_thread():
-    """Example of how to send server generated events to clients."""
+    """
+    Background worker.  This will maintain the status of the
+    backend and the GUI.
+    Send the status of the Datalogger download process.
+    This will continously check the status of the process.
+    """
     count = 0
     while True:
-        socketio.sleep(10)
+        # Wait time
+        socketio.sleep(5)
         count += 1
+
+        # Send a debug status to websocket
         socketio.emit('status_report',
                       {'data': 'Server generated event', 'count': count},
                       namespace='/test')
 
-
+        # Get the Datalogger status
         dl_status = logger_hardware.get_status()
-        #json_dl_status = jsonify(dl_status)
-        json_dl_status = json.dumps(dl_status)
-        socketio.emit('dl_status',
-                        json_dl_status,
-                        namespace='/test')
 
+        # Set the Datalogger status to the gui
+        gui.set_dl_status(dl_status)
+
+        # Get the gui status as json
+        json_gui = gui.get_json()
+
+        # Pass the status to the websocket
+        socketio.emit('gui_status', json_gui, namespace='/test')
 
 
 @app.route("/")
@@ -69,17 +84,29 @@ def serial_scan():
                 {'data': 'Scan Serial Ports', 'count': count},
                 namespace='/test')
 
-    return jsonify(data={'port_list': data_logger.get_serial_ports()})
+    # Set the debug messages
+    gui.set_debug("Scan Serial Ports")
+
+    # Set the port list
+    gui.set_port_list(data_logger.get_serial_ports())
+
+    return jsonify(data=gui.get_gui())
 
 
 @app.route('/browse_folder', methods=['POST'])
 def browse_folder():
     print("Browse for Folder")
 
+    # Browser for a folder using TKinker
     folder_path = logger_hardware.browse_folder()
 
+    # Get the status
     dl_status = logger_hardware.get_status()
-    #json_dl_status = jsonify(dl_status)
+
+    # Set the status to the gui
+    gui.set_dl_status(dl_status)
+
+    # Convert the status to JSON and pass to websocket
     json_dl_status = json.dumps(dl_status)
     socketio.emit('dl_status',
                     json_dl_status,
@@ -97,6 +124,9 @@ def serial_connect():
 
         # Try to connect to the serial port
         connect_status = logger_hardware.connect_serial(form.comm_port.data, int(form.baud_rate.data))
+
+        # Update the GUI
+        gui.set_serial_connect()
 
         return jsonify(data={
                                 'comm_port': '{}'.format(form.comm_port.data),
@@ -119,6 +149,9 @@ def serial_disconnect():
         connect_status = "Disconnect"
         logger_hardware.disconnect_serial()
 
+        # Update the GUI
+        gui.set_serial_disconnect()
+
         return jsonify(data={
                                 'comm_port': '{}'.format(form.comm_port.data),
                                 'baud_rate': '{}'.format(form.baud_rate.data),
@@ -137,7 +170,7 @@ def download():
     logger_hardware.download()
 
     return jsonify(data={
-        'status': 'Downloading'
+        'Status': 'Downloading'
     })
 
     # If not valid, return errors
@@ -234,21 +267,43 @@ def test_broad_message(message):
     emit('my_response', {'data': message['data']}, broadcast=True)
 """
 
+
 @socketio.on('connect', namespace='/test')
-def test_connect():
+def ws_connect():
+    """
+    Call this function when the websocket is connected.
+    This will create a background worker that will
+    pass data to the websocket.  The thread is used
+    to maintain the status of the backend.
+    :return:
+    """
     global thread
+
+    # Update the GUI status
+    # Set the port list and baud rate list
+    gui.set_port_list(data_logger.get_serial_ports())
+    gui.set_baud_list(data_logger.get_baud_rates())
+
     with thread_lock:
+        # Create a thread to run a background worker
         if thread is None:
             @copy_current_request_context
             def ctx_bridge():
+                # Background worker
                 background_thread()
 
-
+            # Start the thread in the background
             thread = socketio.start_background_task(ctx_bridge)
     emit('status_report', {'data': 'Connected', 'count': 0})
 
+
 @socketio.on('disconnect', namespace='/test')
-def test_disconnect():
+def ws_disconnect():
+    """
+    Call this this function when the websocket is
+    disconnected.  This will cleanup everything.
+    :return:
+    """
     print('Client disconnected', request.sid)
 
 
