@@ -10,13 +10,13 @@
                 <p>
                     {{ form.comm_port.label }}<br>
                     {{ form.comm_port() }}
-                <input type="submit" id="btnScan" value="scan" class="btn btn-info btn-lg"/>
+                <input type="submit" id="btnScan" value="scan" class="btn btn-info btn-sm"/>
                 </p>
                 <p>
                     {{ form.baud_rate.label }}<br>
                     {{ form.baud_rate() }}
                 </p>
-                <p><input type="submit" id="btnConnect" value="Connect" class="btn btn-warning btn-lg" /> <input type="submit" id="btnDisconnect" value="Disconnect" class="btn btn-warning btn-lg"/> </p>
+                <p><input type="submit" id="btnConnect" value="Connect" class="btn btn-warning btn-sm" /> <input type="submit" id="btnDisconnect" value="Disconnect" class="btn btn-warning btn-sm"/> </p>
             </form>
         </div>
         <div class="col">
@@ -28,7 +28,7 @@
                 <input type="submit" id="btnBrowseFolder" value="Select Folder" /> 
                 <p><label>Folder Path:  </label><label id="folderPath"></label></p>
                 <p class="lead">
-                    <input type="submit" id="btnDownload" class="btn btn-primary btn-lg" value="Download" />
+                    <Button type="submit" id="btnDownload" class="btn btn-primary btn-lg">Download</Button>
                 </p>
 
                 <p><label>Total Blocks: </label><label id="totalBlocks"></label></p>

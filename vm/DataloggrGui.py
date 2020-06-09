@@ -80,7 +80,7 @@ class DataloggrGui:
         :return:
         """
         self.gui["serial_connect_status"] = "Connected"
-        self.gui["btn_scan_disabled"] = True
+        self.gui["btn_scan_disabled"] = False
         self.gui["btn_connect_disabled"] = True
         self.gui["btn_disconnect_disabled"] = False
         self.gui["btn_download_disabled"] = False
