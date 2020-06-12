@@ -3,10 +3,14 @@ from pathlib import Path
 import sys, traceback, types
 from rti_python.Codecs.AdcpCodec import AdcpCodec
 import time
+import humanize
+
+TIMEOUT_START = 10
 
 # Init time
 t0 = time.process_time()
 ens_count = 0
+timeout = TIMEOUT_START
 
 def is_user_admin():
 
@@ -39,6 +43,11 @@ def get_drive_list():
 
 
 def read_drive(drive: str):
+    global timeout
+
+    BUFFER_SIZE = 1024*512*1
+    byte_count = 0
+
     try:
         path = Path(drive)
 
@@ -64,14 +73,34 @@ def read_drive(drive: str):
         with open(r"\\.\H:", 'rb') as disk:
             while True:
                 # Read the data
-                data = disk.read(100*100)
+                # Use a large buffer size
+
+                data = disk.read(BUFFER_SIZE)
+                byte_count = byte_count + BUFFER_SIZE
+                print("Read Buffer")
 
                 # Add data to the codec
                 codec.add(data)
+                print("Codec Buffer Size: " + humanize.naturalsize(codec.binary_codec.buffer_size()))
+                print("Bytes Read: " + humanize.naturalsize(byte_count))
+                print("Timeout: " + str(timeout))
+                print("Total Size: " + humanize.naturalsize(byte_count))
+                print("Total Ensembles: " + str(ens_count))
 
                 # Check if there is no more data
                 if data == 0:
                     break
+
+                # Check for timeout
+                timeout = timeout - 1
+                if timeout == 0:
+                    break
+
+                # Allow processing
+                #time.sleep(1)
+
+            # Data Processing Complete
+            print("Data Processing Complete")
 
             # Shutdown the codec
             codec.shutdown()
@@ -82,26 +111,35 @@ def read_drive(drive: str):
         codec.shutdown()
 
     t1 = time.process_time()
-    print("Time Start: " + str(t0))
-    print("Time End:   " + str(t1))
-    print("Elapsed Time: " + str(t1-t0))
+    print("Time Start: " + humanize.naturaltime(t0))
+    print("Time End:   " + humanize.naturaltime(t1))
+    print("Elapsed Time: " + humanize.naturaltime(t1-t0))
 
 
 def ensemble_rcv(sender, ens):
     global ens_count
+    global timeout
 
     t1 = time.process_time()
-    ens_count = ens_count + 1
-    if ens.IsEnsembleData:
-        print("Ensemble Received: " + str(ens_count) + " " + str(ens.EnsembleData.EnsembleNumber) + " " + str(t0) + " " + str(t1) + " " + str(t1-t0))
-    else:
-        print("Ensemble Received: " + str(ens_count) + " " + str(t0) + " " + str(t1) + " " + str(t1-t0))
 
-def run_as_admin(cmdLine=None, wait=True):
+    # Keep track of ensemble
+    ens_count = ens_count + 1
+
+    # Print every 100
+    if ens_count % 100 == 0:
+        if ens.IsEnsembleData:
+            print("Ensemble Received: " + str(ens_count) + " " + str(ens.EnsembleData.EnsembleNumber) + " " + humanize.naturaltime(t0) + " " + humanize.naturaltime(t1) + " " + humanize.naturaltime(t1-t0))
+        else:
+            print("Ensemble Received: " + str(ens_count) + " " + humanize.naturaltime(t0) + " " + humanize.naturaltime(t1) + " " + humanize.naturaltime(t1-t0))
+
+    # Reset timeout
+    timeout = TIMEOUT_START
+
+def run_as_admin(cmd_line=None, wait=True):
     """
     If the application is not running as ADMIN, this will start the
     application as ADMIN mode.
-    :param cmdLine:
+    :param cmd_line:
     :param wait:
     :return:
     """
@@ -114,13 +152,13 @@ def run_as_admin(cmdLine=None, wait=True):
 
     python_exe = sys.executable
 
-    if cmdLine is None:
-        cmdLine = [python_exe] + sys.argv
-    elif type(cmdLine) not in (types.TupleType,types.ListType):
+    if cmd_line is None:
+        cmd_line = [python_exe] + sys.argv
+    elif type(cmd_line) not in (types.TupleType,types.ListType):
         raise(ValueError, "cmdLine is not a sequence.")
-    cmd = '"%s"' % (cmdLine[0],)
+    cmd = '"%s"' % (cmd_line[0],)
     # XXX TODO: isn't there a function or something we can call to massage command line params?
-    params = " ".join(['"%s"' % (x,) for x in cmdLine[1:]])
+    params = " ".join(['"%s"' % (x,) for x in cmd_line[1:]])
     cmdDir = ''
     showCmd = win32con.SW_SHOWNORMAL
     #showCmd = win32con.SW_HIDE
@@ -157,8 +195,12 @@ if __name__ == '__main__':
     is_admin = is_user_admin()
     if is_admin:
         print("ADMIN")
+        # Read the data from the drive
+        read_drive(r"\\.\H")
+        # Pause to get the stats
+        input("Press any button to close the application")
     else:
         print("Application must be run as ADMIN")
+        # Restart the application as ADMIN
         run_as_admin()
 
-    read_drive(r"\\.\H")

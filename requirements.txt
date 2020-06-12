@@ -3,3 +3,4 @@ pyserial
 flask-socketio
 flask-wtf
 pypiwin32
+humanize
